@@ -15,6 +15,7 @@
 package kubernetes
 
 import (
+	"fmt"
 	"net/url"
 	"time"
 
@@ -25,7 +26,7 @@ import (
 	kubeapi "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubewatch "k8s.io/apimachinery/pkg/watch"
-
+	kubernetesCore "k8s.io/client-go/kubernetes"
 	kubev1core "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/klog"
 )
@@ -33,6 +34,9 @@ import (
 const (
 	// Number of object pointers. Big enough so it won't be hit anytime soon with reasonable GetNewEvents frequency.
 	LocalEventsBufferSize = 100000
+
+	// TerminationReasonOOMKilled is the reason of a ContainerStateTerminated that reflects an OOM kill
+	TerminationReasonOOMKilled = "OOMKilled"
 )
 
 var (
@@ -74,6 +78,10 @@ type KubernetesEventSource struct {
 	stopChannel chan struct{}
 
 	eventClient kubev1core.EventInterface
+
+	kubeClient kubernetesCore.Interface
+
+	startTime time.Time
 }
 
 func (this *KubernetesEventSource) GetNewEvents() *core.EventBatch {
@@ -157,6 +165,8 @@ func (this *KubernetesEventSource) watch() {
 					case kubewatch.Added, kubewatch.Modified:
 						select {
 						case this.localEventsBuffer <- event:
+							// 评估事件，将类似OOMKilled事件发送出来
+							this.evaluateEvent(event)
 							// Ok, buffer not full.
 						default:
 							// Buffer full, need to drop the event.
@@ -180,6 +190,87 @@ func (this *KubernetesEventSource) watch() {
 	}
 }
 
+const startedEvent = "Started"
+const podKind = "Pod"
+
+// 判断是否是容器启动事件
+func isContainerStartedEvent(event *kubeapi.Event) bool {
+	return (event.Reason == startedEvent &&
+		event.InvolvedObject.Kind == podKind)
+}
+
+// 评估事件
+func (this *KubernetesEventSource) evaluateEvent(event *kubeapi.Event) {
+	klog.V(2).Infof("Got event %s/%s (count: %d), reason: %s, involved object: %s", event.ObjectMeta.Namespace, event.ObjectMeta.Name, event.Count, event.Reason, event.InvolvedObject.Kind)
+
+	// 排除容器启动事件
+	if !isContainerStartedEvent(event) {
+		return
+	}
+
+	// 获取发生事件的Pod信息
+	pod, err := this.kubeClient.CoreV1().Pods(event.InvolvedObject.Namespace).Get(event.InvolvedObject.Name, metav1.GetOptions{})
+	if err != nil {
+		klog.Errorf("Failed to retrieve pod %s/%s, due to: %v", event.InvolvedObject.Namespace, event.InvolvedObject.Name, err)
+		return
+	}
+
+	// 评估Pod状态
+	this.evaluatePodStatus(pod)
+}
+
+// 评估Pod状态
+func (this *KubernetesEventSource) evaluatePodStatus(pod *kubeapi.Pod) {
+	// Look for OOMKilled containers
+	for _, s := range pod.Status.ContainerStatuses {
+		// 排除正常状态和非OOMKilled状态的情况，注意: 后续可以针对不在原生事件中的其他重要状态
+		if s.LastTerminationState.Terminated == nil || s.LastTerminationState.Terminated.Reason != TerminationReasonOOMKilled {
+			ProcessedContainerUpdates.WithLabelValues("not_oomkilled").Inc()
+			continue
+		}
+
+		// 排除发生在kube-eventer启动之前的情况
+		if s.LastTerminationState.Terminated.FinishedAt.Time.Before(this.startTime) {
+			klog.V(1).Infof("The container '%s' in '%s/%s' was terminated before this controller started", s.Name, pod.Namespace, pod.Name)
+			ProcessedContainerUpdates.WithLabelValues("oomkilled_termination_too_old").Inc()
+			continue
+		}
+
+		// 设置OOMKilled事件信息
+		eventType := kubeapi.EventTypeWarning
+		reason := "PreviousContainerWasOOMKilled"
+		message := fmt.Sprintf("The previous instance of the container '%s' (%s) was OOMKilled", s.Name, s.ContainerID)
+
+		// 构造一个事件
+		event := &kubeapi.Event{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        pod.Name,
+				Namespace:   pod.Namespace,
+				Annotations: pod.Annotations,
+			},
+			InvolvedObject: kubeapi.ObjectReference{
+				APIVersion: pod.APIVersion,
+				Kind:       podKind,
+				// FieldPath: ,
+				Name:            pod.Name,
+				Namespace:       pod.Namespace,
+				ResourceVersion: pod.ResourceVersion,
+				UID:             pod.UID,
+			},
+			Reason:         reason,
+			Message:        message,
+			FirstTimestamp: s.LastTerminationState.Terminated.StartedAt,
+			LastTimestamp:  s.LastTerminationState.Terminated.FinishedAt,
+			Count:          1,
+			Type:           eventType,
+		}
+		// 将事件发送到本地事件缓冲区
+		this.localEventsBuffer <- event
+
+		ProcessedContainerUpdates.WithLabelValues("oomkilled_event_sent").Inc()
+	}
+}
+
 func NewKubernetesSource(uri *url.URL) (*KubernetesEventSource, error) {
 	kubeClient, err := kubernetes.GetKubernetesClient(uri)
 	if err != nil {
@@ -191,6 +282,8 @@ func NewKubernetesSource(uri *url.URL) (*KubernetesEventSource, error) {
 		localEventsBuffer: make(chan *kubeapi.Event, LocalEventsBufferSize),
 		stopChannel:       make(chan struct{}),
 		eventClient:       eventClient,
+		kubeClient:        kubeClient,
+		startTime:         time.Now(),
 	}
 	go result.watch()
 	return &result, nil
