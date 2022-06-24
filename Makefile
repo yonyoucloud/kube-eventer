@@ -17,7 +17,8 @@ fmt:
 	find . -type f -name "*.go" | grep -v "./vendor*" | xargs gofmt -s -w
 
 build: clean
-	GOARCH=$(ARCH) CGO_ENABLED=0 go build -ldflags "$(KUBE_EVENTER_LDFLAGS)" -o kube-eventer  github.com/AliyunContainerService/kube-eventer
+	# GOARCH=$(ARCH) CGO_ENABLED=0 go build -ldflags "$(KUBE_EVENTER_LDFLAGS)" -o kube-eventer  github.com/AliyunContainerService/kube-eventer
+	GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-w -X github.com/yonyoucloud/kube-eventer/version.Version=v1.2.1 -X github.com/yonyoucloud/kube-eventer/version.GitCommit=$(git rev-parse --short HEAD)" -mod=vendor -o kube-eventer .
 
 sanitize:
 	hack/check_gofmt.sh
