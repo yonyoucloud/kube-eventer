@@ -205,7 +205,8 @@ func (this *KubernetesEventSource) evaluateEvent(event *kubeapi.Event) {
 
 	// 排除容器启动事件
 	if !isContainerStartedEvent(event) {
-		return
+		// 任何事件都应该触发一次“评估检测”
+		// return
 	}
 
 	// 获取发生事件的Pod信息
@@ -222,7 +223,7 @@ func (this *KubernetesEventSource) evaluateEvent(event *kubeapi.Event) {
 // 评估Pod状态
 func (this *KubernetesEventSource) evaluatePodStatus(pod *kubeapi.Pod) {
 	// Look for OOMKilled containers
-	for _, s := range pod.Status.ContainerStatuses {
+	for i, s := range pod.Status.ContainerStatuses {
 		// 排除正常状态和非OOMKilled状态的情况，注意: 后续可以针对不在原生事件中的其他重要状态
 		if s.LastTerminationState.Terminated == nil || s.LastTerminationState.Terminated.Reason != TerminationReasonOOMKilled {
 			ProcessedContainerUpdates.WithLabelValues("not_oomkilled").Inc()
@@ -239,7 +240,7 @@ func (this *KubernetesEventSource) evaluatePodStatus(pod *kubeapi.Pod) {
 		// 设置OOMKilled事件信息
 		eventType := kubeapi.EventTypeWarning
 		reason := "PreviousContainerWasOOMKilled"
-		message := fmt.Sprintf("The previous instance of the container '%s' (%s) was OOMKilled", s.Name, s.ContainerID)
+		message := fmt.Sprintf("The previous instance of the container '%s' (%s) was OOMKilled, LimitMemory: %.1fM", s.Name, s.ContainerID, float64(pod.Spec.Containers[i].Resources.Limits.Memory().Value()/1024/1024))
 
 		// 构造一个事件
 		event := &kubeapi.Event{
