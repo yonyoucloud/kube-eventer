@@ -264,6 +264,10 @@ func (this *KubernetesEventSource) evaluatePodStatus(pod *kubeapi.Pod) {
 			LastTimestamp:  s.LastTerminationState.Terminated.FinishedAt,
 			Count:          1,
 			Type:           eventType,
+			Source: kubeapi.EventSource{
+				Component: "enhancement",
+				Host:      pod.Status.HostIP,
+			},
 		}
 		// 将事件发送到本地事件缓冲区
 		this.localEventsBuffer <- event
