@@ -7,17 +7,18 @@ ALL_ARCHITECTURES=amd64 arm arm64 ppc64le s390x
 ML_PLATFORMS=linux/amd64,linux/arm,linux/arm64,linux/ppc64le,linux/s390x
 
 
+GITHUB?=github.com/yonyoucloud/kube-eventer
 VERSION?=v1.2.1
 GIT_COMMIT:=$(shell git rev-parse --short HEAD)
 
 
-KUBE_EVENTER_LDFLAGS=-w -X github.com/yonyoucloud/kube-eventer/version.Version=$(VERSION) -X github.com/yonyoucloud/kube-eventer/version.GitCommit=$(GIT_COMMIT)
+KUBE_EVENTER_LDFLAGS=-w -X github.com/AliyunContainerService/kube-eventer/version.Github=$(GITHUB) -X github.com/AliyunContainerService/kube-eventer/version.Version=$(VERSION) -X github.com/AliyunContainerService/kube-eventer/version.GitCommit=$(GIT_COMMIT)
 
 fmt:
 	find . -type f -name "*.go" | grep -v "./vendor*" | xargs gofmt -s -w
 
 build: clean
-	# GOARCH=$(ARCH) CGO_ENABLED=0 go build -ldflags "$(KUBE_EVENTER_LDFLAGS)" -o kube-eventer  github.com/AliyunContainerService/kube-eventer
+	# GOARCH=$(ARCH) CGO_ENABLED=0 go build -ldflags "$(KUBE_EVENTER_LDFLAGS)" -o kube-eventer github.com/AliyunContainerService/kube-eventer
 	GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "$(KUBE_EVENTER_LDFLAGS)" -mod=vendor -o kube-eventer .
 
 sanitize:

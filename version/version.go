@@ -19,10 +19,11 @@ import (
 )
 
 var (
+	Github    = ""
 	Version   = ""
 	GitCommit = ""
 )
 
 func VersionInfo() string {
-	return fmt.Sprintf("kube-eventer version: %s commit: %s\n", Version, GitCommit)
+	return fmt.Sprintf("kube-eventer github: %s, version: %s, commit: %s\n", Github, Version, GitCommit)
 }
