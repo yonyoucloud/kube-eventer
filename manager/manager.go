@@ -26,7 +26,7 @@ var (
 	// Last time of eventer housekeep since unix epoch in seconds
 	lastHousekeepTimestamp = prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Namespace: "kube-eventer",
+			Namespace: "kube_eventer",
 			Subsystem: "manager",
 			Name:      "last_time_seconds",
 			Help:      "Last time of eventer housekeep since unix epoch in seconds.",

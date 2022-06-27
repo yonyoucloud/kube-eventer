@@ -7,7 +7,7 @@ import (
 var (
 	// ProcessedContainerUpdates stores the number of processed containers
 	ProcessedContainerUpdates = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "kube-eventer",
+		Namespace: "kube_eventer",
 		Name:      "container_updates_processed_total",
 		Help:      "The total number of processed container updates.",
 	}, []string{"update_type"})

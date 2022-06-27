@@ -32,7 +32,7 @@ var (
 	// Time spent exporting events to sink in milliseconds.
 	exporterDuration = prometheus.NewSummaryVec(
 		prometheus.SummaryOpts{
-			Namespace: "kube-eventer",
+			Namespace: "kube_eventer",
 			Subsystem: "exporter",
 			Name:      "duration_milliseconds",
 			Help:      "Time spent exporting events to sink in milliseconds.",

@@ -43,21 +43,21 @@ var (
 	// Last time of event since unix epoch in seconds
 	lastEventTimestamp = prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Namespace: "kube-eventer",
+			Namespace: "kube_eventer",
 			Subsystem: "scraper",
 			Name:      "last_time_seconds",
 			Help:      "Last time of event since unix epoch in seconds.",
 		})
 	totalEventsNum = prometheus.NewCounter(
 		prometheus.CounterOpts{
-			Namespace: "kube-eventer",
+			Namespace: "kube_eventer",
 			Subsystem: "scraper",
 			Name:      "events_total_number",
 			Help:      "The total number of events.",
 		})
 	scrapEventsDuration = prometheus.NewSummary(
 		prometheus.SummaryOpts{
-			Namespace: "kube-eventer",
+			Namespace: "kube_eventer",
 			Subsystem: "scraper",
 			Name:      "duration_milliseconds",
 			Help:      "Time spent scraping events in milliseconds.",
