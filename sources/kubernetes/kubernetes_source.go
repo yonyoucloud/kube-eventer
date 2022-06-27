@@ -62,12 +62,21 @@ var (
 			Name:      "duration_milliseconds",
 			Help:      "Time spent scraping events in milliseconds.",
 		})
+
+	kubernetesEvent = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: "kube_eventer",
+			Subsystem: "scraper",
+			Name:      "kubernetes_event",
+			Help:      "The event of the kubernetes.",
+		}, []string{"count", "kind", "namespace", "name", "uid", "resource_version", "component", "host", "first_occurrence_timestamp", "last_occurrence_timestamp", "reason", "message", "type"})
 )
 
 func init() {
 	prometheus.MustRegister(lastEventTimestamp)
 	prometheus.MustRegister(totalEventsNum)
 	prometheus.MustRegister(scrapEventsDuration)
+	prometheus.MustRegister(kubernetesEvent)
 }
 
 // Implements core.EventSource interface.
@@ -99,6 +108,22 @@ event_loop:
 	for {
 		select {
 		case event := <-this.localEventsBuffer:
+			// 记录Kubernetes事件到Prometheus
+			kubernetesEvent.WithLabelValues(
+				fmt.Sprintf("%d", event.Count),
+				event.InvolvedObject.Kind,
+				event.InvolvedObject.Namespace,
+				event.InvolvedObject.Name,
+				string(event.UID),
+				event.ResourceVersion,
+				event.Source.Component,
+				event.Source.Host,
+				event.FirstTimestamp.GoString(),
+				event.LastTimestamp.GoString(),
+				event.Reason,
+				event.Message,
+				event.Type,
+			).Set(1)
 			result.Events = append(result.Events, event)
 		default:
 			break event_loop
@@ -207,6 +232,11 @@ func (this *KubernetesEventSource) evaluateEvent(event *kubeapi.Event) {
 	if !isContainerStartedEvent(event) {
 		// 任何事件都应该触发一次“评估检测”
 		// return
+	}
+
+	// 排查非Pod类型的事件
+	if event.InvolvedObject.Kind != podKind {
+		return
 	}
 
 	// 获取发生事件的Pod信息
