@@ -272,8 +272,15 @@ func (this *KubernetesEventSource) evaluatePodStatus(pod *kubeapi.Pod) {
 
 		// 设置OOMKilled事件信息
 		eventType := kubeapi.EventTypeWarning
-		reason := "PreviousContainerWasOOMKilled"
-		message := fmt.Sprintf("The previous instance of the container '%s' (%s) was OOMKilled, LimitMemory: %.1fMB", s.Name, s.ContainerID, float64(pod.Spec.Containers[i].Resources.Limits.Memory().Value()/1024/1024))
+		reason := "ContainerOOMKilled"
+		statReason := ""
+		if s.State.Waiting != nil {
+			statReason = s.State.Waiting.Reason
+		}
+		if s.State.Terminated != nil {
+			statReason = s.State.Terminated.Reason
+		}
+		message := fmt.Sprintf("The previous instance of the container '%s' (%s) was OOMKilled, LimitMemory: %.1fMB, Restarts: %d, StateReason: %s", s.Name, s.ContainerID, float64(pod.Spec.Containers[i].Resources.Limits.Memory().Value()/1024/1024), s.RestartCount, statReason)
 
 		// 构造一个事件
 		event := &kubeapi.Event{
