@@ -108,22 +108,25 @@ event_loop:
 	for {
 		select {
 		case event := <-this.localEventsBuffer:
-			// 记录Kubernetes事件到Prometheus
-			kubernetesEvent.WithLabelValues(
-				fmt.Sprintf("%d", event.Count),
-				event.InvolvedObject.Kind,
-				event.InvolvedObject.Namespace,
-				event.InvolvedObject.Name,
-				string(event.UID),
-				event.ResourceVersion,
-				event.Source.Component,
-				event.Source.Host,
-				event.FirstTimestamp.GoString(),
-				event.LastTimestamp.GoString(),
-				event.Reason,
-				event.Message,
-				event.Type,
-			).Set(1)
+			// Prometheus中暂时只记录非Normal类型的事件
+			if event.Type != "Normal" {
+				// 记录Kubernetes事件到Prometheus
+				kubernetesEvent.WithLabelValues(
+					fmt.Sprintf("%d", event.Count),
+					event.InvolvedObject.Kind,
+					event.InvolvedObject.Namespace,
+					event.InvolvedObject.Name,
+					string(event.UID),
+					event.ResourceVersion,
+					event.Source.Component,
+					event.Source.Host,
+					event.FirstTimestamp.Format("2006-01-02T15:04:05Z"),
+					event.LastTimestamp.Format("2006-01-02T15:04:05Z"),
+					event.Reason,
+					event.Message,
+					event.Type,
+				).Set(1)
+			}
 			result.Events = append(result.Events, event)
 		default:
 			break event_loop
