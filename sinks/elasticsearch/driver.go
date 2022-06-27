@@ -146,7 +146,7 @@ func NewElasticSearchSink(uri *url.URL) (event_core.EventSink, error) {
 
 	esSink.errorRate = prometheus.NewGauge(
 		prometheus.GaugeOpts{
-			Namespace: "eventer",
+			Namespace: "kube-eventer",
 			Subsystem: "elasticsearch",
 			Name:      "errors",
 			Help:      "Bulk processing errors.",
