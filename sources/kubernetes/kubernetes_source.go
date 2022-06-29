@@ -75,7 +75,6 @@ func init() {
 	prometheus.MustRegister(lastEventTimestamp)
 	prometheus.MustRegister(totalEventsNum)
 	prometheus.MustRegister(scrapEventsDuration)
-	prometheus.MustRegister(kubernetesEvent)
 }
 
 // Implements core.EventSource interface.
@@ -100,6 +99,8 @@ func (this *KubernetesEventSource) GetNewEvents() *core.EventBatch {
 		// 清理一下内存中的历史事件
 		kubernetesEvent.Reset()
 	}()
+	// 注册事件收集
+	prometheus.MustRegister(kubernetesEvent)
 	result := core.EventBatch{
 		Timestamp: time.Now(),
 		Events:    []*kubeapi.Event{},
