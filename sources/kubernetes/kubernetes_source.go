@@ -75,6 +75,7 @@ func init() {
 	prometheus.MustRegister(lastEventTimestamp)
 	prometheus.MustRegister(totalEventsNum)
 	prometheus.MustRegister(scrapEventsDuration)
+	prometheus.MustRegister(kubernetesEvent)
 }
 
 // Implements core.EventSource interface.
@@ -96,11 +97,7 @@ func (this *KubernetesEventSource) GetNewEvents() *core.EventBatch {
 	defer func() {
 		lastEventTimestamp.Set(float64(time.Now().Unix()))
 		scrapEventsDuration.Observe(float64(time.Since(startTime)) / float64(time.Millisecond))
-		// 清理一下内存中的历史事件
-		kubernetesEvent.Reset()
 	}()
-	// 注册事件收集
-	prometheus.MustRegister(kubernetesEvent)
 	result := core.EventBatch{
 		Timestamp: time.Now(),
 		Events:    []*kubeapi.Event{},
@@ -110,34 +107,44 @@ event_loop:
 	for {
 		select {
 		case event := <-this.localEventsBuffer:
-			// Prometheus中暂时只记录非Normal类型的事件
-			if event.Type != "Normal" {
-				// 记录Kubernetes事件到Prometheus
-				kubernetesEvent.WithLabelValues(
-					fmt.Sprintf("%d", event.Count),
-					event.InvolvedObject.Kind,
-					event.InvolvedObject.Namespace,
-					event.InvolvedObject.Name,
-					string(event.UID),
-					event.ResourceVersion,
-					event.Source.Component,
-					event.Source.Host,
-					event.FirstTimestamp.Format("2006-01-02T15:04:05Z"),
-					event.LastTimestamp.Format("2006-01-02T15:04:05Z"),
-					event.Reason,
-					event.Message,
-					event.Type,
-				).Set(1)
-			}
 			result.Events = append(result.Events, event)
 		default:
 			break event_loop
 		}
 	}
 
+	// 记录Kubernetes事件到Prometheus
+	this.recordToPrometheus(result.Events)
+
 	totalEventsNum.Add(float64(len(result.Events)))
 
 	return &result
+}
+
+func (this *KubernetesEventSource) recordToPrometheus(events []*kubeapi.Event) {
+	// 清空一下数据，注意：配置的拉数据Job必须在一次事件获取周期之内，否则会丢数据
+	kubernetesEvent.Reset()
+	for _, event := range events {
+		// Prometheus中暂时只记录非Normal类型的事件
+		if event.Type == "Normal" {
+			continue
+		}
+		kubernetesEvent.WithLabelValues(
+			fmt.Sprintf("%d", event.Count),
+			event.InvolvedObject.Kind,
+			event.InvolvedObject.Namespace,
+			event.InvolvedObject.Name,
+			string(event.UID),
+			event.ResourceVersion,
+			event.Source.Component,
+			event.Source.Host,
+			event.FirstTimestamp.Format("2006-01-02T15:04:05Z"),
+			event.LastTimestamp.Format("2006-01-02T15:04:05Z"),
+			event.Reason,
+			event.Message,
+			event.Type,
+		).Set(1)
+	}
 }
 
 func (this *KubernetesEventSource) watch() {
