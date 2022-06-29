@@ -62,7 +62,6 @@ var (
 			Name:      "duration_milliseconds",
 			Help:      "Time spent scraping events in milliseconds.",
 		})
-
 	kubernetesEvent = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: "kube_eventer",
@@ -98,6 +97,8 @@ func (this *KubernetesEventSource) GetNewEvents() *core.EventBatch {
 	defer func() {
 		lastEventTimestamp.Set(float64(time.Now().Unix()))
 		scrapEventsDuration.Observe(float64(time.Since(startTime)) / float64(time.Millisecond))
+		// 清理一下内存中的历史事件
+		kubernetesEvent.Reset()
 	}()
 	result := core.EventBatch{
 		Timestamp: time.Now(),
