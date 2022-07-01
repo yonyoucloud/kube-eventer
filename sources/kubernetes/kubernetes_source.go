@@ -130,7 +130,7 @@ func (this *KubernetesEventSource) recordToPrometheus(events []*kubeapi.Event) {
 			continue
 		}
 		kubernetesEvent.WithLabelValues(
-			fmt.Sprintf("%d", event.Count),
+			// fmt.Sprintf("%d", event.Count),
 			event.InvolvedObject.Kind,
 			event.InvolvedObject.Namespace,
 			event.InvolvedObject.Name,
@@ -138,12 +138,12 @@ func (this *KubernetesEventSource) recordToPrometheus(events []*kubeapi.Event) {
 			event.ResourceVersion,
 			event.Source.Component,
 			event.Source.Host,
-			event.FirstTimestamp.Format("2006-01-02T15:04:05Z"),
-			event.LastTimestamp.Format("2006-01-02T15:04:05Z"),
+			// event.FirstTimestamp.Format("2006-01-02T15:04:05Z"),
+			// event.LastTimestamp.Format("2006-01-02T15:04:05Z"),
 			event.Reason,
 			event.Message,
 			event.Type,
-		).Set(1)
+		).Set(float64(event.Count))
 	}
 }
 
