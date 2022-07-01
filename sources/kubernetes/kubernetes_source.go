@@ -68,7 +68,21 @@ var (
 			Subsystem: "scraper",
 			Name:      "kubernetes_event",
 			Help:      "The event of the kubernetes.",
-		}, []string{"count", "kind", "namespace", "name", "uid", "resource_version", "component", "host", "first_occurrence_timestamp", "last_occurrence_timestamp", "reason", "message", "type"})
+		}, []string{
+			// "count",
+			"kind",
+			"namespace",
+			"name",
+			"uid",
+			"resource_version",
+			"component",
+			"host",
+			// "first_occurrence_timestamp",
+			// "last_occurrence_timestamp",
+			"reason",
+			"message",
+			"type",
+		})
 )
 
 func init() {
