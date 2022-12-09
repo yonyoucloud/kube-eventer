@@ -1,0 +1,23 @@
+FROM alpine:latest
+
+LABEL maintainer="bishh@yonyou.com"
+
+ARG TARGETARCH
+
+ENV TZ "Asia/Shanghai"
+
+RUN apk upgrade --no-cache && \
+    apk add --no-cache --update tzdata && \
+    rm -rf /tmp/* /var/cache/apk/* && \
+    mkdir -p /lib64 && ln -s /lib/libc.musl-x86_64.so.1 /lib64/ld-linux-x86-64.so.2 && \
+    ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    echo "Asia/Shanghai" > /etc/timezone
+
+COPY ${TARGETARCH}/kube-eventer /kube-eventer
+
+RUN addgroup -g 1000 nonroot && \
+    adduser -u 1000 -D -H -G nonroot nonroot && \
+    chown -R nonroot:nonroot /kube-eventer
+USER nonroot:nonroot
+
+ENTRYPOINT ["/kube-eventer"]

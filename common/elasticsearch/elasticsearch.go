@@ -54,6 +54,7 @@ type ElasticConfig struct {
 	Timeout     *time.Duration
 	HttpClient  *http.Client
 	Sniff       *bool
+	V8          *bool
 }
 
 type ElasticSearchService struct {
@@ -227,6 +228,14 @@ func CreateElasticSearchService(uri *url.URL) (*ElasticSearchService, error) {
 			}
 			config.Sniff = &sniff
 		}
+	}
+
+	if len(opts["v8"]) > 0 {
+		v8, err := strconv.ParseBool(opts["v8"][0])
+		if err != nil {
+			return nil, errors.New("Failed to parse URL's v8 value into a bool")
+		}
+		config.V8 = &v8
 	}
 
 	bulkWorkers := 5

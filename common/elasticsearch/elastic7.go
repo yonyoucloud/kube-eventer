@@ -3,8 +3,9 @@ package elasticsearch
 import (
 	"context"
 	"fmt"
-	"k8s.io/klog"
 	"time"
+
+	"k8s.io/klog"
 
 	elastic7 "github.com/olivere/elastic/v7"
 	"github.com/pborman/uuid"
@@ -14,6 +15,7 @@ type Elastic7Wrapper struct {
 	client        *elastic7.Client
 	pipeline      string
 	bulkProcessor *elastic7.BulkProcessor
+	v8            bool
 }
 
 func NewEsClient7(config ElasticConfig, bulkWorkers int, pipeline string) (*Elastic7Wrapper, error) {
@@ -51,6 +53,11 @@ func NewEsClient7(config ElasticConfig, bulkWorkers int, pipeline string) (*Elas
 		startupFns = append(startupFns, elastic7.SetSniff(*config.Sniff))
 	}
 
+	v8 := false
+	if config.V8 != nil {
+		v8 = *config.V8
+	}
+
 	client, err := elastic7.NewClient(startupFns...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to an ElasticSearch Client: %v", err)
@@ -68,7 +75,7 @@ func NewEsClient7(config ElasticConfig, bulkWorkers int, pipeline string) (*Elas
 		return nil, fmt.Errorf("failed to an ElasticSearch Bulk Processor: %v", err)
 	}
 
-	return &Elastic7Wrapper{client: client, bulkProcessor: bps, pipeline: pipeline}, nil
+	return &Elastic7Wrapper{client: client, bulkProcessor: bps, pipeline: pipeline, v8: v8}, nil
 }
 
 func (es *Elastic7Wrapper) IndexExists(indices ...string) (bool, error) {
@@ -111,11 +118,21 @@ func (es *Elastic7Wrapper) ErrorStats() int64 {
 }
 
 func (es *Elastic7Wrapper) AddBulkReq(index, typeName string, data interface{}) error {
-	req := elastic7.NewBulkIndexRequest().
-		Index(index).
-		Type(typeName).
-		Id(uuid.NewUUID().String()).
-		Doc(data)
+	var req *elastic7.BulkIndexRequest
+
+	if es.v8 {
+		req = elastic7.NewBulkIndexRequest().
+			Index(index).
+			Id(uuid.NewUUID().String()).
+			Doc(data)
+	} else {
+		req = elastic7.NewBulkIndexRequest().
+			Index(index).
+			Type(typeName).
+			Id(uuid.NewUUID().String()).
+			Doc(data)
+	}
+
 	if es.pipeline != "" {
 		req.Pipeline(es.pipeline)
 	}
