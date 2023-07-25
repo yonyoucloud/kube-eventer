@@ -148,14 +148,14 @@ func (this *KubernetesEventSource) recordToPrometheus(events []*kubeapi.Event) {
 			event.InvolvedObject.Kind,
 			event.InvolvedObject.Namespace,
 			event.InvolvedObject.Name,
-			// string(event.UID),
+			string(event.UID),
 			// event.ResourceVersion,
 			event.Source.Component,
 			event.Source.Host,
 			// event.FirstTimestamp.Format("2006-01-02T15:04:05Z"),
 			// event.LastTimestamp.Format("2006-01-02T15:04:05Z"),
 			event.Reason,
-			event.Message,
+			// event.Message,
 			event.Type,
 		).Set(float64(event.Count))
 	}
