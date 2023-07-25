@@ -73,14 +73,14 @@ var (
 			"kind",
 			"namespace",
 			"name",
-			// "uid",
+			"uid",
 			// "resource_version",
 			"component",
 			"host",
 			// "first_occurrence_timestamp",
 			// "last_occurrence_timestamp",
 			"reason",
-			"message",
+			// "message",
 			"type",
 		})
 )
